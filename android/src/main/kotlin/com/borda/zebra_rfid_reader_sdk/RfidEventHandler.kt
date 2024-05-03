@@ -3,6 +3,7 @@ package com.borda.zebra_rfid_reader_sdk
 import android.util.Log
 import com.borda.zebra_rfid_reader_sdk.utils.*
 import com.zebra.rfid.api3.*
+import com.google.gson.Gson
 
 /**
  * Handles RFID events such as tag reads, status changes, and disconnections.
@@ -30,14 +31,21 @@ class RfidEventHandler(reader: RFIDReader, private var emit: (json: String) -> U
      */
     override fun eventReadNotify(e: RfidReadEvents) {
         val myTags: Array<TagData> = reader.Actions.getReadTags(100)
+        var data: MutableList<String> = mutableListOf<String>()
         if (myTags != null) {
             for (index in 0 until myTags.size) {
+                Log.d(LOG_TAG, "Tag ID " + myTags[index])
+                TagLocationingResponse.setTag(myTags[index].tagID)
                 if (myTags[index].isContainsLocationInfo) {
                     TagLocationingResponse.setDistancePercent(myTags[index].LocationInfo.relativeDistance.toInt())
-                    emit(TagLocationingResponse.toJson())
+                    data.add(TagLocationingResponse.toJson())
+                } else {
+                    data.add(TagLocationingResponse.toJson())
                 }
             }
         }
+        emit(Gson().toJson(data))
+
     }
 
     /**
@@ -95,9 +103,10 @@ class RfidEventHandler(reader: RFIDReader, private var emit: (json: String) -> U
         if (!isReaderConnected()) return
         try {
             var triggerMode: TriggerMode = BordaHandheldTrigger.getMode()
-
+            Log.d(LOG_TAG, "Trigger Mode: $triggerMode")
             if (triggerMode == TriggerMode.INVENTORY_PERFORM) {
                 reader.Actions.Inventory.perform()
+                
 
             } else if (triggerMode == TriggerMode.TAG_LOCATIONING_PERFORM) {
                 val tagLocationing = TagLocationingResponse.getTag()
@@ -122,6 +131,7 @@ class RfidEventHandler(reader: RFIDReader, private var emit: (json: String) -> U
 
             if (triggerMode == TriggerMode.INVENTORY_PERFORM) {
                 reader.Actions.Inventory.stop()
+                reader.Actions.purgeTags()
 
             } else if (triggerMode == TriggerMode.TAG_LOCATIONING_PERFORM) {
                 reader.Actions.TagLocationing.Stop()
